@@ -1,0 +1,16 @@
+name: vault-challenge
+id: ari:cloud:compass:8526d2ba-687c-46b3-8b65-acaf550a9b39:component/141c5c30-d6a4-4eb9-b8dd-1a0c55663014/9f90885a-abdd-4cff-aada-d81eb9703b74
+description: 'Participant kit for the qBraid Vault Challenge: rulebook, walkthrough notebook, and client.'
+configVersion: 1
+typeId: SERVICE
+fields:
+  tier: 4
+links:
+  - name: null
+    type: REPOSITORY
+    url: https://github.com/qBraid/vault-challenge
+relationships:
+  DEPENDS_ON: []
+labels:
+  - source:github
+customFields: null
