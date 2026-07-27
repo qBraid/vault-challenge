@@ -1,8 +1,9 @@
 # The qBraid Vault Challenge
 
-**July 28 – August 11, 2026 · opens 10:00 CDT · account.qbraid.com**
+**July 28 – August 11, 2026 · opens 10:00 CDT · [account.qbraid.com](https://account.qbraid.com/explore?tab=challenges)**
 
----
+<img width="1200" height="627" alt="vault_challenge" src="https://github.com/user-attachments/assets/2b14f21d-37d3-4cbf-8ff7-7baf5070c229" />
+
 
 ## The story
 
@@ -256,5 +257,4 @@ Good luck. 🔓
 
 ---
 
-*© 2026 qBraid. Questions? Reach out on the qBraid community Slack or see
-[docs.qbraid.com](https://docs.qbraid.com).*
+*© 2026 qBraid. Questions? Reach out on the qBraid community [Discord](https://discord.com/invite/9jpmpeEV65).*
