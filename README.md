@@ -169,7 +169,7 @@ leaderboard, so you always know where you stand.
 The fastest route is the qBraid Lab walkthrough notebook
 (`vault_challenge.ipynb`), which ships alongside the client
 (`vault_client.py`). Authentication uses your qBraid API key — already
-configured inside qBraid Lab; elsewhere, run `qbraid configure` first.
+configured inside qBraid Lab; elsewhere, run [`qbraid configure`](https://docs.qbraid.com/v2/cli/api-reference/qbraid_configure) first.
 
 ```bash
 pip install qbraid qbraid-core qiskit
@@ -246,7 +246,7 @@ A few tricks of the trade, free of charge:
   loops need far fewer server calls than you might think.
 - **Mind the exchange rate.** Before spending an extra CNOT to fix a small
   amplitude, check the math: with $\text{costFactor} = 4c/(4c+\Delta)$, an
-  extra gate on a low-$c$ vault costs a lot more than on a high-$c$ one.
+  extra gate on a low-c vault costs a lot more than on a high-c one.
 - **Budget like a professional.** Twenty probes is plenty if each one tests a
   hypothesis. Twenty attacks is plenty if you only attack when you expect a
   new personal best — remember, ties rank by fewest attacks used.
