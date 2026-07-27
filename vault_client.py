@@ -58,9 +58,12 @@ Example
 >>> client.leaderboard()           # standings
 """
 
+import importlib.util
 from typing import Any, Dict, List, Optional
 
+import pyqasm
 from qbraid.exceptions import QbraidError
+from qbraid.programs import get_program_type_alias
 from qbraid.transpiler import transpile
 from qbraid_core import QbraidSession
 
@@ -83,9 +86,22 @@ def to_qasm(circuit: CircuitLike) -> str:
     try:
         return transpile(circuit, "qasm3")
     except QbraidError as err:
-        raise TypeError(
-            f"Unsupported program type {type(circuit).__name__!r}. Pass a Qiskit "
-            "QuantumCircuit or an OpenQASM string."
+        # Two very different failures land here, and saying "unsupported type"
+        # for both sends people hunting the wrong problem. qBraid's own
+        # registry tells them apart: if it can name the program type, the type
+        # was fine and some instruction inside it could not be expressed.
+        try:
+            get_program_type_alias(circuit)
+        except QbraidError:
+            raise TypeError(
+                f"Unsupported program type {type(circuit).__name__!r}. Pass a "
+                "Qiskit QuantumCircuit or an OpenQASM string."
+            ) from err
+        raise ValueError(
+            "Could not convert this circuit to OpenQASM 3. The usual cause is "
+            "an instruction with no OpenQASM equivalent -- state preparation "
+            "such as `initialize`, or a custom/opaque gate. Try "
+            "`circuit.decompose()` and submit that."
         ) from err
 
 
@@ -115,11 +131,47 @@ class VaultClient:
 
     @staticmethod
     def _verify_qasm_program(qasm: str) -> None:
-        """Verify that the qasm program is valid."""
+        """Pre-flight check: reject a bad program before it costs budget.
+
+        A convenience, not a gate — the server validates every submission and
+        refunds invalid ones. Two layers, because they catch different things
+        and are not equally available:
+
+        * ``pyqasm`` parses the program. It is a hard dependency of qbraid, so
+          this always runs, and it catches malformed QASM.
+        * A Cirq round-trip additionally rejects programs that parse but the
+          simulator cannot run (timing instructions, mid-circuit measurement).
+          qbraid installs Cirq only as the ``[cirq]`` extra, so this layer is
+          skipped when it is missing.
+        """
+        # pyqasm is a hard dependency of qbraid, so this layer always runs and
+        # catches the most common mistake by far: QASM that does not parse.
+        try:
+            pyqasm.loads(qasm).validate()
+        except Exception as err:
+            raise ValueError(
+                "This does not parse as OpenQASM. If you built it in Qiskit, "
+                "pass the circuit itself rather than a hand-written string."
+            ) from err
+
+        # Round-tripping through Cirq additionally catches programs that parse
+        # but the simulator will not run. qbraid ships Cirq only as the
+        # optional [cirq] extra, so this layer is skipped when it is absent
+        # rather than failing a good circuit; the server still validates.
+        try:
+            if importlib.util.find_spec("cirq") is None:
+                return
+        except (ImportError, ValueError):  # absent, or a broken partial install
+            return
         try:
             _ = transpile(qasm, "cirq")
         except QbraidError as err:
-            raise ValueError("Invalid OpenQASM program.") from err
+            raise ValueError(
+                "This program is not something the simulator can run. Timing "
+                "instructions (`delay`), mid-circuit measurement and other "
+                "non-unitary operations are the usual cause -- the vault "
+                "simulator only accepts unitary circuits."
+            ) from err
 
     def _post_request(
         self, action: str, vault_index: int, circuit: CircuitLike
