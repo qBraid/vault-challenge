@@ -35,7 +35,11 @@ Rules
   10,000 operations.
 - Terminal measurements in your program are ignored (stripped before
   simulation); mid-circuit measurements are rejected as invalid.
-- Requests are limited to 30 per minute across probes and attacks combined.
+- Requests are limited to 30 per minute across probes and attacks combined
+  (reads are a separate, more generous bucket). The client paces itself to
+  stay under this and waits out a rate limit rather than failing, so a tight
+  loop of probes slows down instead of erroring. Rate-limited requests are
+  refused before they reach the simulator and never cost budget.
 - Your total score is the average of your best attack score on vaults 1-12.
   Ties on the leaderboard rank by fewest scored attacks used.
 
@@ -58,19 +62,113 @@ Example
 >>> client.leaderboard()           # standings
 """
 
+import email.utils
 import importlib.util
-from typing import Any, Dict, List, Optional
+import time
+from collections import deque
+from typing import Any, Callable, Deque, Dict, List, Optional
 
 import pyqasm
 from qbraid.exceptions import QbraidError
 from qbraid.programs import get_program_type_alias
 from qbraid.transpiler import transpile
-from qbraid_core import QbraidSession
+from qbraid_core.sessions import QbraidSession
 
 
 #: A submission: a Qiskit ``QuantumCircuit``, an OpenQASM 2/3 string, or any
 #: other program type qBraid can transpile.
 CircuitLike = Any
+
+
+def _retry_after_seconds(err: BaseException) -> Optional[float]:
+    """Seconds to wait per a 429's ``Retry-After``, or None if this isn't a 429.
+
+    ``QbraidSession`` raises ``RequestsApiError(...) from err``, so the original
+    ``requests`` exception -- and with it the response, its status and its
+    headers -- survives on the ``__cause__`` chain. Walk that chain rather than
+    matching on the message text, which is prose and may be reworded.
+    """
+    seen = set()
+    while err is not None and id(err) not in seen:
+        seen.add(id(err))
+        response = getattr(err, "response", None)
+        if response is not None and getattr(response, "status_code", None) == 429:
+            header = response.headers.get("Retry-After", "")
+            return _parse_retry_after(header)
+        err = err.__cause__ or err.__context__
+    return None
+
+
+def _parse_retry_after(header: str) -> float:
+    """``Retry-After`` as seconds. Accepts the delay-seconds and HTTP-date forms.
+
+    Falls back to the full window when the header is absent or unparseable: a
+    429 is a real signal even when its hint is not, and waiting is always the
+    safe direction. Capped so a bogus header cannot hang the caller.
+    """
+    header = (header or "").strip()
+    if not header:
+        return _WINDOW_SECONDS
+    try:
+        return max(0.0, min(float(header), _MAX_BACKOFF_SECONDS))
+    except ValueError:
+        pass
+    try:  # HTTP-date form, e.g. "Wed, 21 Oct 2026 07:28:00 GMT"
+        retry_at = email.utils.parsedate_to_datetime(header)
+    except (TypeError, ValueError):
+        return _WINDOW_SECONDS
+    if retry_at is None:
+        return _WINDOW_SECONDS
+    delta = retry_at.timestamp() - time.time()
+    return max(0.0, min(delta, _MAX_BACKOFF_SECONDS))
+
+
+#: The server's rate-limit window. Both buckets use the same one.
+_WINDOW_SECONDS = 60.0
+
+#: Never sleep longer than this on a single 429, however large the hint.
+_MAX_BACKOFF_SECONDS = 120.0
+
+
+class _RateLimiter:
+    """Sliding-window pacer that keeps the client under a server bucket.
+
+    The server rations probes and attacks at 30/minute and rejects the 31st
+    with a 429. That is easy to trip by accident: a tomography loop firing 20
+    probes back to back is normal play, and at full speed it arrives well
+    inside one window. Pacing here turns that into a steady cadence instead of
+    a hard error partway through a loop.
+
+    Sliding rather than fixed-bucket, because the server's window slides: it
+    keeps request timestamps and waits only until the oldest one ages out, so a
+    burst after a quiet spell goes straight through at full speed and only a
+    sustained burst is slowed.
+    """
+
+    def __init__(self, max_requests: int, window: float = _WINDOW_SECONDS):
+        self.max_requests = max_requests
+        self._window = window
+        self._times: Deque[float] = deque()
+
+    def acquire(self, notify: Optional[Callable[[float], None]] = None) -> None:
+        """Block until another request would stay within the window."""
+        now = time.monotonic()
+        self._evict(now)
+        if len(self._times) >= self.max_requests:
+            wait = self._times[0] + self._window - now
+            if wait > 0:
+                if notify is not None:
+                    notify(wait)
+                time.sleep(wait)
+            now = time.monotonic()
+            self._evict(now)
+        self._times.append(now)
+
+    def _evict(self, now: float) -> None:
+        """Drop timestamps that have aged out of the window."""
+        cutoff = now - self._window
+        while self._times and self._times[0] <= cutoff:
+            self._times.popleft()
 
 
 def to_qasm(circuit: CircuitLike) -> str:
@@ -120,9 +218,38 @@ class VaultClient:
     #: this must exceed that; QbraidSession's default of 30 s is too short.
     _HTTP_TIMEOUT = 40
 
-    def __init__(self, qbraid_session: Optional[QbraidSession] = None):
-        """Initialize the client with a QbraidSession object."""
+    #: Server bucket for probe + attack combined (shared across both).
+    _ACTION_RATE = 30
+
+    #: Server bucket for the read endpoints (state, leaderboard).
+    _READ_RATE = 60
+
+    #: Extra attempts after a 429. The wait comes from the server's
+    #: ``Retry-After``, so one retry almost always suffices; the second covers
+    #: a window that had already partly elapsed when we were told about it.
+    _MAX_RETRIES = 2
+
+    def __init__(
+        self,
+        qbraid_session: Optional[QbraidSession] = None,
+        pace_requests: bool = True,
+    ):
+        """Initialize the client with a QbraidSession object.
+
+        Args:
+            qbraid_session: Session to use. Defaults to a fresh ``QbraidSession``.
+            pace_requests: Keep requests under the server's rate limit by
+                waiting when a call would exceed it. On by default. Turning it
+                off does not gain you throughput -- the server still enforces
+                the limit -- it only converts the wait into a 429, which is
+                occasionally what you want when testing error handling.
+        """
         self._session = qbraid_session or QbraidSession()
+        self._pace = pace_requests
+        # Separate limiters because the server keys separate buckets: reading
+        # the leaderboard in a loop must not eat into your attack allowance.
+        self._action_limiter = _RateLimiter(self._ACTION_RATE)
+        self._read_limiter = _RateLimiter(self._READ_RATE)
 
     @property
     def session(self) -> QbraidSession:
@@ -173,6 +300,49 @@ class VaultClient:
                 "simulator only accepts unitary circuits."
             ) from err
 
+    @staticmethod
+    def _notify(message: str) -> None:
+        """Tell the user we are waiting, so a pause never looks like a hang."""
+        print(message, flush=True)
+
+    def _send(self, limiter: "_RateLimiter", send: Callable[[], Any]) -> Any:
+        """Perform one request, pacing ahead of it and backing off on a 429.
+
+        Retrying is safe here in a way it is not for qBraid requests generally,
+        and that is why this lives in the vault client rather than in the
+        session: the challenge API mounts its rate limiter *before* the route
+        handler, so a 429 is refused before it reaches the simulator and never
+        touches your probe/attack budget. A retried request costs nothing but
+        time.
+
+        ``QbraidSession`` will not do this for us. Its retry policy forces
+        retries only on the 5xx codes in its ``STATUS_FORCELIST``, and 429 is
+        not among them -- so a POST is never retried on a rate limit whatever
+        the ``Retry-After`` says. Its 5-second ceiling on ``Retry-After`` then
+        discards the server's 60-second hint on the GET endpoints, where the
+        retry would otherwise be allowed.
+        """
+        if self._pace:
+            limiter.acquire(
+                lambda wait: self._notify(
+                    f"Rate limit: pausing {wait:.0f}s to stay under "
+                    f"{limiter.max_requests}/min."
+                )
+            )
+        for attempt in range(self._MAX_RETRIES + 1):
+            try:
+                return send()
+            except Exception as err:  # noqa: BLE001 - re-raised unless it's a 429
+                wait = _retry_after_seconds(err)
+                if wait is None or attempt == self._MAX_RETRIES:
+                    raise
+                self._notify(
+                    f"Rate limited by the server; waiting {wait:.0f}s and "
+                    "retrying (this does not use up your budget)."
+                )
+                time.sleep(wait)
+        raise AssertionError("unreachable")  # pragma: no cover
+
     def _post_request(
         self, action: str, vault_index: int, circuit: CircuitLike
     ) -> Dict[str, Any]:
@@ -181,8 +351,13 @@ class VaultClient:
         # Catch a bad program locally rather than spending budget on it.
         self._verify_qasm_program(qasm)
         query = {"vaultIndex": vault_index, "openQasm": qasm}
-        resp = self.session.post(
-            f"/challenges/vault/{action}", json=query, timeout=self._HTTP_TIMEOUT
+        resp = self._send(
+            self._action_limiter,
+            lambda: self.session.post(
+                f"/challenges/vault/{action}",
+                json=query,
+                timeout=self._HTTP_TIMEOUT,
+            ),
         )
         return resp.json()["data"]
 
@@ -208,16 +383,24 @@ class VaultClient:
         """Returns your challenge state: scores, remaining budgets, and the
         event window. Never enrolls you — enrollment happens on your first
         probe or attack."""
-        return self.session.get(
-            "/challenges/vault/state", timeout=self._HTTP_TIMEOUT
-        ).json()["data"]
+        resp = self._send(
+            self._read_limiter,
+            lambda: self.session.get(
+                "/challenges/vault/state", timeout=self._HTTP_TIMEOUT
+            ),
+        )
+        return resp.json()["data"]
 
     def leaderboard(self, page: int = 1, limit: int = 50) -> List[Dict[str, Any]]:
         """Returns one page of the challenge standings, ranked by average
         score. The endpoint is paginated; pass ``page``/``limit`` to page
         through the full board (``limit`` is capped server-side)."""
-        return self.session.get(
-            "/challenges/vault/leaderboard",
-            params={"page": page, "limit": limit},
-            timeout=self._HTTP_TIMEOUT,
-        ).json()["data"]
+        resp = self._send(
+            self._read_limiter,
+            lambda: self.session.get(
+                "/challenges/vault/leaderboard",
+                params={"page": page, "limit": limit},
+                timeout=self._HTTP_TIMEOUT,
+            ),
+        )
+        return resp.json()["data"]
