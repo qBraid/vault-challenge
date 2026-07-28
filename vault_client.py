@@ -41,7 +41,7 @@ Rules
 
 You are enrolled on your first probe or attack — no registration needed, and
 checking your state or the leaderboard never enrolls you. Authentication
-uses your qBraid API key via ``QbraidSession``.
+uses your qBraid API key via ``QbraidSessionV1``.
 
 Example
 -------
@@ -62,10 +62,10 @@ import importlib.util
 from typing import Any, Dict, List, Optional
 
 import pyqasm
+from qbraid import QbraidSessionV1
 from qbraid.exceptions import QbraidError
 from qbraid.programs import get_program_type_alias
 from qbraid.transpiler import transpile
-from qbraid_core.sessions import QbraidSession
 
 
 #: A submission: a Qiskit ``QuantumCircuit``, an OpenQASM 2/3 string, or any
@@ -117,16 +117,16 @@ class VaultClient:
 
     #: HTTP timeout (seconds) for challenge requests. The server may take up
     #: to ~35 s in the worst case (30 s simulation cap plus overhead), so
-    #: this must exceed that; QbraidSession's default of 30 s is too short.
+    #: this must exceed that; the session default of 30 s is too short.
     _HTTP_TIMEOUT = 40
 
-    def __init__(self, qbraid_session: Optional[QbraidSession] = None):
-        """Initialize the client with a QbraidSession object."""
-        self._session = qbraid_session or QbraidSession()
+    def __init__(self, qbraid_session: Optional[QbraidSessionV1] = None):
+        """Initialize the client with a qBraid session object."""
+        self._session = qbraid_session or QbraidSessionV1()
 
     @property
-    def session(self) -> QbraidSession:
-        """Return the QbraidSession object."""
+    def session(self) -> QbraidSessionV1:
+        """Return the qBraid session object."""
         return self._session
 
     @staticmethod
