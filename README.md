@@ -63,9 +63,9 @@ value of the measured bitstring: on 3 qubits, key `"0"` means `000` and key
 
 ### Attack — the real thing
 
-An **attack** runs the combined circuit for **2000 shots** and returns a
-score. Only attacks count toward the leaderboard, and only your **best**
-attack per vault is kept — a bad attack can never lower a good one.
+An **attack** runs the combined circuit and returns a score. Only attacks
+count toward the leaderboard, and only your **best** attack per vault is kept —
+a bad attack can never lower a good one.
 
 ## The vault lineup
 
@@ -116,9 +116,12 @@ Every attack is scored as
 
 $$\text{score} = \text{rawScore} \times \text{costFactor}$$
 
-**rawScore** is the probability of measuring all zeros — the fraction of the
-2000 shots in which every tumbler landed on 0. A perfect inversion gives
-$\text{rawScore} = 1$.
+**rawScore** is the probability of measuring all zeros — computed exactly from
+the final state, not estimated from samples, so an identical solution always
+earns an identical score. A perfect inversion gives $\text{rawScore} = 1$.
+
+(Probes still sample: their 200-shot histogram is what you read the vault
+from, and its noise is part of the reconnaissance problem.)
 
 **costFactor** is the safecracker's tax on brute force. Two-qubit gates are
 the expensive, noisy part of any circuit — the drill, not the stethoscope.
