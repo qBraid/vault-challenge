@@ -177,7 +177,7 @@ The fastest route is the qBraid Lab walkthrough notebook
 configured inside qBraid Lab; elsewhere, run [`qbraid configure`](https://docs.qbraid.com/v2/cli/api-reference/qbraid_configure) first.
 
 ```bash
-pip install qbraid qbraid-core qiskit
+pip install qbraid qiskit
 ```
 
 ```python
