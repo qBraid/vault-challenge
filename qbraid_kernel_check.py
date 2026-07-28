@@ -44,11 +44,28 @@ _INSTALL_SLUG = "vault_8t6kfi"
 _DOCS_URL     = "https://docs.qbraid.com/v2/lab/user-guide/notebooks#switch-notebook-kernel"
 
 
+_LAB_HOME = "/home/jovyan"
+
+
 def _running_in_qbraid() -> bool:
-    """True if we appear to be inside a qBraid Lab environment."""
+    """True if we appear to be inside qBraid Lab.
+
+    Deliberately NOT `shutil.which("qbraid")`. The qBraid CLI is exactly what
+    participants running outside Lab are told to install (`pip install qbraid`,
+    then `qbraid configure`), so its presence is evidence of nothing — and
+    treating it as evidence made this guard raise on the first cell of the
+    notebook for every local user, with instructions about the qBraid sidebar
+    that do not apply to them.
+
+    The Lab image is Linux with ``/home/jovyan`` as HOME, which is the same
+    assumption the rest of this module already makes: the authoritative pass
+    check is ``sys.executable.startswith(_VAULT_PREFIX)``, and that prefix is
+    rooted there. The environments directory is accepted as an alternative
+    signal so a Lab session still matches if HOME is ever relocated.
+    """
     return (
-        shutil.which("qbraid") is not None
-        or os.path.isdir("/home/jovyan/.qbraid/environments")
+        os.path.realpath(os.path.expanduser("~")) == _LAB_HOME
+        or os.path.isdir(_LAB_HOME + "/.qbraid/environments")
     )
 
 
@@ -125,7 +142,12 @@ def check_vault_kernel(raise_on_error: bool = True) -> bool:
     Raises RuntimeError otherwise (unless raise_on_error=False).
     """
     if not _running_in_qbraid():
-        print("ℹ️  Not running in qBraid — skipping Vault Challenge kernel check.")
+        # Playing locally is supported — the README says so — so this is a
+        # note, never an error. Point at what a local run actually needs,
+        # since the install cell below is commented out by default.
+        print("ℹ️  Not running in qBraid Lab — skipping the kernel check.")
+        print("   Running locally? Make sure the dependencies are installed")
+        print("   (see the next cell) and that you have run 'qbraid configure'.")
         return True
 
     if sys.executable.startswith(_VAULT_PREFIX):
