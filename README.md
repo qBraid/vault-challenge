@@ -98,10 +98,12 @@ Each family rewards a different attack strategy — see the hints at the end.
 - **Measurements:** terminal measurements in your program are ignored
   (stripped before simulation); **mid-circuit measurements are rejected** as
   invalid.
-- **Refunds:** invalid submissions (e.g. malformed QASM, or circuits over the
-  qubit/operation caps) are refunded and do not consume budget. Simulations
-  that hit the **30-second time limit** are *not* refunded — heavy circuits
-  are spent whether or not they finish.
+- **Refunds:** a submission that fails never costs you budget. That covers
+  invalid programs (malformed QASM, or circuits over the qubit/operation
+  caps) and simulations that hit the **30-second time limit** — the simulator
+  is shared, so a timeout may say more about how busy it is than about your
+  circuit, and you shouldn't pay for that. Only a simulation that returns a
+  result is charged.
 - **Enrollment:** automatic on your first probe or attack. No registration,
   no sign-up form — just start playing. (Your personal vault set is generated
   at that moment.) Checking your state or the leaderboard never enrolls you.

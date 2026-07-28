@@ -28,9 +28,9 @@ Rules
 -----
 - Vault 0 is a practice vault: 50 probes + 50 attacks, never scored. It is
   the same 3-qubit circuit for everyone — perfect for warming up.
-- Vaults 1-12 each allow 20 probes and 20 attacks. Failed submissions
-  (invalid QASM, over the size caps) are not charged against your budget;
-  simulations that hit the 30-second time limit are.
+- Vaults 1-12 each allow 20 probes and 20 attacks. Only a simulation that
+  returns a result is charged: invalid QASM, over-the-size-cap circuits and
+  30-second timeouts are all refunded.
 - The combined circuit (vault + your program) may use at most 20 qubits and
   10,000 operations.
 - Terminal measurements in your program are ignored (stripped before
