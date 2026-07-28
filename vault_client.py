@@ -65,7 +65,7 @@ import pyqasm
 from qbraid.exceptions import QbraidError
 from qbraid.programs import get_program_type_alias
 from qbraid.transpiler import transpile
-from qbraid_core import QbraidSession
+from qbraid_core.sessions import QbraidSession
 
 
 #: A submission: a Qiskit ``QuantumCircuit``, an OpenQASM 2/3 string, or any
