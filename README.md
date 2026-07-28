@@ -4,6 +4,17 @@
 
 <img width="1200" height="627" alt="vault_challenge" src="https://github.com/user-attachments/assets/2b14f21d-37d3-4cbf-8ff7-7baf5070c229" />
 
+## Contents
+
+- [The story](#the-story)
+- [Your goal](#your-goal)
+- [The tools of the trade](#the-tools-of-the-trade)
+- [The vault lineup](#the-vault-lineup)
+- [Rules and budgets](#rules-and-budgets)
+- [Scoring](#scoring)
+- [Prizes](#prizes)
+- [Getting started](#getting-started)
+- [Field notes for safecrackers](#field-notes-for-safecrackers)
 
 ## The story
 
