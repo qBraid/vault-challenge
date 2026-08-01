@@ -66,6 +66,12 @@ declare. Probe a vault wider than your own program and you will get back keys
 too large to fit your register, which is exactly how you find out how wide it
 really is.
 
+Declaring a wider register does not help: qubits you never put a gate on are
+dropped, so an empty probe returns the vault's own width whatever size you
+asked for. Qubits you *do* touch beyond the vault are appended as the lowest
+bits of the key — and on an attack they count toward the all-zeros
+measurement, so leaving one rotated or entangled cuts your score.
+
 ### Attack — the real thing
 
 An **attack** runs the combined circuit and returns a score. Only attacks
