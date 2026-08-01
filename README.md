@@ -60,6 +60,12 @@ A **probe** runs your circuit appended after the hidden circuit for
 value of the measured bitstring: on 3 qubits, key `"0"` means `000` and key
 `"7"` means `111`.
 
+Your circuit is composed onto the **vault's** register, not yours, so those
+keys always span the hidden circuit's full width — however many qubits you
+declare. Probe a vault wider than your own program and you will get back keys
+too large to fit your register, which is exactly how you find out how wide it
+really is.
+
 ### Attack — the real thing
 
 An **attack** runs the combined circuit and returns a score. Only attacks
