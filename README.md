@@ -60,6 +60,30 @@ A **probe** runs your circuit appended after the hidden circuit for
 value of the measured bitstring: on 3 qubits, key `"0"` means `000` and key
 `"7"` means `111`.
 
+**The easiest way to learn how wide a vault is: probe it with an empty
+circuit.** Your program is composed onto the *vault's* register rather than the
+other way round, so the keys that come back always span the hidden circuit's
+full width — and the largest of them gives you that width outright:
+
+```python
+hist = client.probe(vault_index, empty_circuit)
+width = max(int(k) for k in hist).bit_length()
+```
+
+You do not need to guess the size first, and it costs nothing extra, since
+this is the probe worth spending anyway.
+
+The same composition is why a program *narrower* than the vault is accepted
+rather than rejected — it simply acts on the low qubits. You will get back keys
+too large to fit the register you declared, which is the tell. Decoding those
+against your own width instead of the vault's is the one way to turn a perfectly
+good probe into meaningless data.
+
+Declaring a wider register does not help either: qubits you never put a gate on
+are dropped. Qubits you *do* touch beyond the vault are appended as the lowest
+bits of the key, and on an attack they count toward the all-zeros measurement —
+so leaving one rotated or entangled cuts your score.
+
 ### Attack — the real thing
 
 An **attack** runs the combined circuit and returns a score. Only attacks
@@ -224,9 +248,10 @@ to write.
 
 A few tricks of the trade, free of charge:
 
-- **Probe with an empty circuit first.** Submitting a gateless program on the
-  right-sized register shows you the vault's raw output distribution — the
-  single most informative measurement you can make, for one probe.
+- **Probe with an empty circuit first.** A gateless program shows you the
+  vault's raw output distribution *and* its qubit count in one shot — the
+  single most informative measurement you can make, for one probe. You do not
+  need to know the width beforehand; the keys tell you.
 - **Learn the classic signatures.** Certain states have unmistakable
   histograms: a GHZ state puts all its weight on the two extreme bitstrings;
   a uniform distribution over half the bitstrings smells like stabilizer
