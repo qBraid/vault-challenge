@@ -210,7 +210,9 @@ class VaultClient:
         """Probe a vault with a Qiskit circuit (or OpenQASM).
 
         Returns histogram data with keys in the big-endian decimal
-        representation of measurement bit strings.
+        representation of measurement bit strings -- qubit 0 is the most
+        significant bit, the reverse of Qiskit's own ordering, so on 3
+        qubits key "4" is qubit 0 alone.
         """
         resp_data = self._post_request("probe", vault_index, circuit)
         return resp_data["histogram"]

@@ -57,8 +57,9 @@ strings are still accepted if you prefer writing them by hand:
 A **probe** runs your circuit appended after the hidden circuit for
 **200 shots** and returns the measurement histogram. Probes are never scored
 — they are your stethoscope. Histogram keys are the **big-endian decimal**
-value of the measured bitstring: on 3 qubits, key `"0"` means `000` and key
-`"7"` means `111`.
+value of the measured bitstring — qubit 0 is the *most* significant bit, the
+reverse of Qiskit's own ordering. On 3 qubits, key `"4"` means `100`: qubit 0
+measured 1, qubits 1 and 2 measured 0.
 
 **The easiest way to learn how wide a vault is: probe it with an empty
 circuit.** Your program is composed onto the *vault's* register rather than the
