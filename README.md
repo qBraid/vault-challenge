@@ -63,22 +63,46 @@ measured 1, qubits 1 and 2 measured 0.
 
 **The easiest way to learn how wide a vault is: probe it with an empty
 circuit.** Your program is composed onto the *vault's* register rather than the
-other way round, so the keys that come back always span the hidden circuit's
-full width — and the largest of them gives you that width outright:
+other way round, so the keys that come back are always values over the hidden
+circuit's full register:
 
 ```python
 hist = client.probe(vault_index, empty_circuit)
-width = max(int(k) for k in hist).bit_length()
+width = max(int(k) for k in hist).bit_length()   # a lower bound — see below
 ```
 
 You do not need to guess the size first, and it costs nothing extra, since
 this is the probe worth spending anyway.
 
+Treat it as a **lower bound**, though. A probe is a *sample*: that last line
+reaches the vault's full width only if at least one of the 200 shots comes back
+with qubit 0 — the most significant bit — set. Whenever the top bit is rare, a
+run of 200 can miss it entirely, and the width then reads short with nothing to
+signal it. Size your circuit to that answer and you are fighting the wrong
+vault.
+
+Two cheap ways to stay honest. Check the answer against the vault's family
+range in the table below — anything under that range is a short read. And when
+you want certainty, spend one more probe with qubit 0 flipped, keeping the
+larger of the two answers:
+
+```python
+flip = QuantumCircuit(1)
+flip.x(0)                       # composes onto the vault's qubit 0
+flipped = client.probe(vault_index, flip)
+
+width = max(width, max(int(k) for k in flipped).bit_length())
+```
+
+The two cover each other: the flipped probe can only miss the top bit in the
+cases where the empty one is overwhelmingly likely to catch it.
+
 The same composition is why a program *narrower* than the vault is accepted
-rather than rejected — it simply acts on the low qubits. You will get back keys
-too large to fit the register you declared, which is the tell. Decoding those
-against your own width instead of the vault's is the one way to turn a perfectly
-good probe into meaningless data.
+rather than rejected — it simply acts on the low-*index* qubits, which are the
+high-order bits of every key. You will get back keys too large to fit the
+register you declared, which is the tell. Decoding those against your own
+width instead of the vault's is the one way to turn a perfectly good probe
+into meaningless data.
 
 Declaring a wider register does not help either: qubits you never put a gate on
 are dropped. Qubits you *do* touch beyond the vault are appended as the lowest
