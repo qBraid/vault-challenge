@@ -1,6 +1,6 @@
 # The qBraid Vault Challenge
 
-**July 28 – August 11, 2026 · opens 10:00 CDT · [account.qbraid.com](https://account.qbraid.com/explore?tab=challenges)**
+**Open leaderboard · no end date · [account.qbraid.com](https://account.qbraid.com/explore?tab=challenges)**
 
 <img width="1200" height="627" alt="vault_challenge" src="https://github.com/user-attachments/assets/2b14f21d-37d3-4cbf-8ff7-7baf5070c229" />
 
@@ -155,10 +155,12 @@ Each family rewards a different attack strategy — see the hints at the end.
 - **Enrollment:** automatic on your first probe or attack. No registration,
   no sign-up form — just start playing. (Your personal vault set is generated
   at that moment.) Checking your state or the leaderboard never enrolls you.
-- **Event window:** two weeks exactly — opens July 28, 2026 at 10:00 CDT
-  (15:00 UTC) and closes August 11 at the same hour. The live window is
-  configured server-side — `client.state()` reports the authoritative dates.
-  Probes and attacks are only accepted while the window is open.
+- **Event window:** the challenge first ran as a two-week event (July 28 –
+  August 11, 2026) and is now open indefinitely as a standing leaderboard.
+  Scores from the original event carry over, and the per-vault budgets above
+  are still per participant, not per event. The window is configured
+  server-side — `client.state()` reports it (`endAt` is `null` while the
+  challenge is open-ended).
 
 ## Scoring
 
@@ -202,16 +204,8 @@ safecracker who needed fewer tries ranks higher, so make every attack count.
 
 ## Prizes
 
-The top three safecrackers on the final leaderboard win:
-
-| Place | Amazon gift card | qBraid credits |
-|---|---|---|
-| 1st | $100 | 10,000 |
-| 2nd | $50 | 5,000 |
-| 3rd | $25 | 2,500 |
-
-qBraid credits are worth $0.01 each and pay for real QPU time, GPU compute, and
-AI usage with leading models.
+Prizes were awarded to the top three of the original two-week event
+(July 28 – August 11, 2026). The open-ended leaderboard has no prizes.
 
 Standings are the average of your best attack across vaults 1–12, with ties
 broken by fewest scored attacks used. Both are reported live on the

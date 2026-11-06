@@ -121,9 +121,9 @@ class VaultClient:
     vault circuits, and check your standing.
 
     The combined circuit (vault + your program) may use at most 20 qubits
-    and 10,000 operations. The challenge runs for two weeks: July 28 to
-    August 11, 2026, opening at 10:00 CDT. The window is configured
-    server-side, and ``state()`` reports the authoritative live dates.
+    and 10,000 operations. The challenge opened July 28, 2026 and now runs
+    as an open-ended leaderboard. The window is configured server-side, and
+    ``state()`` reports it (``endAt`` is ``None`` while open-ended).
     """
 
     #: HTTP timeout (seconds) for challenge requests. The server may take up
